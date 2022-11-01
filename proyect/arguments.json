@@ -1,0 +1,26 @@
+{
+    "engine": {
+        "puerto_escucha": 2334,
+        "max_jugadores": 4,
+        "puerto_clima": 2844,
+        "ip_clima": "localhost"
+    },
+    "player": {
+        "ip_engine": "localhost",
+        "puerto_engine": 2334,
+        "ip_broker": "localhost",
+        "puerto_broker": 2554,
+        "ip_registry": "localhost",
+        "puerto_registry": 2443
+    },
+    "registry": {
+        "puerto_escucha": 2443
+    },
+    "npc": {
+        "ip_broker": "localhost",
+        "puerto_broker": 2554
+    },
+    "clima": {
+        "puerto_escucha": 2844
+    }
+}

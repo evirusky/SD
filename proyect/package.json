@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "pg": "^8.8.0",
+    "pg-hstore": "^2.3.4",
+    "read-console": "^1.0.3",
+    "sequelize": "^6.25.3",
+    "socket.io": "^4.5.3",
+    "socket.io-client": "^4.5.3"
+  },
+  "scripts": {
+    "engine": "node ./AA_engine/aa_engine.js",
+    "player": "node ./AA_player/aa_player.js",
+    "registry": "node ./AA_registry/aa_registry.js",
+    "weather": "node ./AA_weather/aa_weather.js",
+    "npc": "node ./AA_npc/aa_npc.js"
+  }
+}

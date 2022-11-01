@@ -1,0 +1,15 @@
+{
+    "ip_kafka": "localhost",
+    "ip_servidor_socket": "localhost",
+    "mi_array": [
+        1,
+        2,
+        3,
+        4
+    ],
+    "engine": {
+        "ip": "hola",
+        "puerto_escucha": 2332,
+        "n_jugadores": 10
+    }
+}
