@@ -3,6 +3,8 @@
 //console.log(process.env.IP);
 
 const { consumer, producer } = require("./kafka.js");
+
+
 const readline = require('readline');
 
 
@@ -48,7 +50,9 @@ process.stdin.on('keypress', (chunk, key) => {
         case "right": usuario.nuevo.y += 1;
             break;
 
-        case "q": process.exit();
+        case "q":
+            process.exit();
+
 
     }
 

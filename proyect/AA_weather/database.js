@@ -29,7 +29,11 @@ async function inicializar() {
     try {
         await sequelize.authenticate();
         await Clima.sync({ force: true });
-        await Clima.create({ ciudad: "Alicante", temperatura: 23.7 });
+        await Clima.create({ ciudad: "Alicante", temperatura: 27.5 });
+        await Clima.create({ ciudad: "Londres", temperatura: 13 });
+        await Clima.create({ ciudad: "Paris", temperatura: 18.3 });
+        await Clima.create({ ciudad: "Madrid", temperatura: 20.1 });
+        await Clima.create({ ciudad: "Roma", temperatura: 25.7 });
 
     }
     catch (e) {

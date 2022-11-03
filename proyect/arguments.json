@@ -9,7 +9,7 @@
         "ip_engine": "localhost",
         "puerto_engine": 2334,
         "ip_broker": "localhost",
-        "puerto_broker": 2554,
+        "puerto_broker": 9092,
         "ip_registry": "localhost",
         "puerto_registry": 2443
     },
@@ -18,7 +18,7 @@
     },
     "npc": {
         "ip_broker": "localhost",
-        "puerto_broker": 2554
+        "puerto_broker": 9092
     },
     "clima": {
         "puerto_escucha": 2844

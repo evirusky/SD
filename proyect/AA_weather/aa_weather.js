@@ -6,15 +6,21 @@ const { Socket } = require("socket.io");
 
 const io = require("socket.io")();
 
-//inicializar();
+inicializar();
+
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min) + min); // The maximum is exclusive and the minimum is inclusive
+}
 
 io.on("connection", cliente => {
 
     cliente.on('clima', async (msg) => {
 
         console.log(msg);
-
-        const ciudad = await Clima.findByPk(3);
+        let num = getRandomInt(1, 6);
+        const ciudad = await Clima.findByPk(num);
 
         console.log(ciudad.ciudad + " : " + ciudad.temperatura);
 
