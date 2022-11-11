@@ -115,11 +115,36 @@ io.on("connection", playerSocket => {
 
 //KAFKA : ENGINE RECIBE MOVIMIENTO DE PLAYER
 consumer.on('message', (message) => {
-    console.log(message.value);
+    //console.log(message.value);
+    let movimiento = JSON.parse(message.value);
+
+    pool.query('SELECT id, x, y FROM user_db WHERE alias=\'' + movimiento.alias + '\'', (err, res) => {
+        if (err) console.log('Error inesperado');
+        else {
+            let id = res.rows[0].id;
+            //console.log(id);
+
+
+            //ACTUALIZO LAS COORDENADAS ANTIGUAS DEL PLAYER
+            let x_nueva = res.rows[0].x + movimiento.x;
+            let y_nueva = res.rows[0].y + movimiento.y;
+
+            //Y LAS ALMACENO EN LA BD 
+            pool.query('UPDATE user_db SET x=' + x_nueva + ', y=' + y_nueva + ' WHERE id=' + id + '', (err, res) => {
+                if (err) console.log('Error inesperado');
+                else {
+                    console.log('Coordenadas actualizadas')
+                }
+            });
+
+
+
+        }
+    });
 
 
     //Y CUANDO RECIBO EL MOVIMIENTO RECIBO EL MAPA
-    producirMapa();
+    // producirMapa();
 
 
 });

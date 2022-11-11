@@ -23,26 +23,26 @@ function capturaTecla(alias) {
     process.stdin.on('keypress', (chunk, key) => {
 
         switch (key.name) {
-            case "up": usuario.x += 1;
+            case "up": usuario.x = 1;
                 break;
-            case "down": usuario.x -= 1;
+            case "down": usuario.x = 1;
                 break;
-            case "left": usuario.y -= 1;
+            case "left": usuario.y = 1;
                 break;
-            case "right": usuario.y += 1;
+            case "right": usuario.y = 1;
                 break;
 
             case "q":
                 process.exit();
         }
 
-
+        //console.log(usuario);
         //player envia al topico movimiento sus coordenadas
         let payloads = [{ topic: 'movimiento', messages: JSON.stringify(usuario), partition: 0 }];
 
         producer.send(payloads, (err, data) => {
             if (err) console.error(err);
-            // console.log(data);
+
         });
 
     });
