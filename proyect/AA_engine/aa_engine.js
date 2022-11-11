@@ -1,5 +1,7 @@
 const argumentos = require("../arguments.json");
 const reader = require("read-console");
+const { producer, consumer } = require("../kafka.js")
+
 const { Jugador } = require("../AA_registry/database.js")
 
 //servidor para registry y engine

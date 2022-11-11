@@ -25,9 +25,7 @@ client.createTopics(topics, (err, data) => {
 const consumer = new kafka.Consumer(
     client,
     [{ topic: 'juego', partition: 0 },],
-    {
-        autoCommit: true,
-    }
+
 );
 
 

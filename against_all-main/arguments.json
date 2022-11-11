@@ -1,0 +1,26 @@
+{
+  "engine": {
+    "ip": "localhost",
+    "port": 2334,
+    "max_jugadores": 4
+  },
+  "registry": {
+    "ip": "localhost",
+    "port": 2443
+  },
+  "kafka": {
+    "ip": "localhost",
+    "port": 2554
+  },
+  "clima": {
+    "ip": "localhost",
+    "port": 2844
+  },
+  "db": {
+    "user": "root",
+    "pass": "root",
+    "host": "192.168.100.4",
+    "port": 5432,
+    "db_name": "Against_All"
+  }
+}
