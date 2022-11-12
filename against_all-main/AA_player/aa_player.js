@@ -22,12 +22,14 @@ function capturaTecla(alias) {
 
     process.stdin.on('keypress', (chunk, key) => {
 
+        usuario.x = 0;
+        usuario.y = 0;
         switch (key.name) {
-            case "up": usuario.x = 1;
+            case "up": usuario.x = -1;
                 break;
             case "down": usuario.x = 1;
                 break;
-            case "left": usuario.y = 1;
+            case "left": usuario.y = -1;
                 break;
             case "right": usuario.y = 1;
                 break;
