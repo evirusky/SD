@@ -14,8 +14,7 @@ client.createTopics(["npc"], (err, result) => {
 //  con coordenadas entre 0 y 19 aleatorias y una id superior a 1000
 setInterval(() => {
     let usuario = {
-        x: Math.floor(Math.random() * 20),
-        y: Math.floor(Math.random() * 20),
+
         id: process.argv[2]
     };
     let payloads = [{ topic: "npc", messages: JSON.stringify(usuario), partition: 0 }];

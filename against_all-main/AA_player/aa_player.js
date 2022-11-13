@@ -53,84 +53,106 @@ function capturaTecla(id) {
 }
 
 
+
 //MENÚ
-console.log("**BIENVENIDO** \n1.Crear perfil. \n2.Editar peril. \n3.Unirse a la partida\nq.Salir ");
-reader.read(">", (opcion) => {
-    switch (opcion) {
-        case '1':
-            //conexión a aa_registry, crea usuario
-            reader.read("Alias : ", (alias) => {
-                reader.read("Contraseña : ", (password) => {
-                    //autentifico por sockets a engine
-                    registry.emit("nuevoUsuario", { alias, password }, (response) => {
-                        console.log(response);
-                    });
-                });
-            });
-            break;
-        case '2':
-            //conexión aa_registry para actualizar perfil jugador ya existente
-            reader.read("Alias : ", (alias) => {
-                reader.read("Contraseña : ", (password) => {
-                    reader.read("Nueva Contraseña : ", (nPassword) => {
+function menu() {
+    console.log(" \nMENÚ PRINCIPAL \n1.Crear perfil. \n2.Editar peril. \n3.Unirse a la partida\nq.Salir ");
+    reader.read(">", (opcion) => {
+        switch (opcion) {
+            case '1':
+                //conexión a aa_registry, crea usuario
+                reader.read("Alias : ", (alias) => {
+                    reader.read("Contraseña : ", (password) => {
                         //autentifico por sockets a engine
-                        registry.emit("modificarUsuario", { alias, password, nPassword }, (response) => {
+                        if (!registry.connected) console.log('Error : No se ha podido conectar con el servidor registry');
+
+                        registry.emit("nuevoUsuario", { alias, password }, (response) => {
                             console.log(response);
+                            menu();
+                        });
+
+                    });
+                });
+                break;
+            case '2':
+                //conexión aa_registry para actualizar perfil jugador ya existente
+                reader.read("Alias : ", (alias) => {
+                    reader.read("Contraseña : ", (password) => {
+                        reader.read("Nueva Contraseña : ", (nPassword) => {
+                            //autentifico por sockets a engine
+                            if (!registry.connected) console.log("Error : No se ha podido conectar al servidor registry");
+                            registry.emit("modificarUsuario", { alias, password, nPassword }, (response) => {
+                                console.log(response);
+                                menu();
+                            });
+
                         });
                     });
                 });
-            });
-            break;
-        case '3':
+                break;
+            case '3':
 
-            reader.read("Alias : ", (alias) => {
-                reader.read("Contraseña : ", (password) => {
-                    //autentifico por sockets a engine
-                    engine.emit("SolAcceso", { alias, password }, (response) => {
-                        //console.log(response);
-                        if (response.includes("Error")) {
-                            console.log(response);
-                            return;
-                        }
+                reader.read("Alias : ", (alias) => {
+                    reader.read("Contraseña : ", (password) => {
+                        //autentifico por sockets a engine
+                        if (!engine.connected)
+                            console.log("Error : No se ha podido conectar al servidor engine");
 
-                        jugador = JSON.parse(response);
-                        console.log("Jugador " + jugador.alias + " con id " + jugador.id + ". Bienvenido a la partida :)");
 
-                        //capturo las teclas 
-                        capturaTecla(jugador.id);
 
-                        //Me suscribo al topico partida y muestro el mapa que recibo de engine
-                        consumer.on('message', (message) => {
+                        engine.emit("SolAcceso", { alias, password }, (response) => {
+                            //console.log(response);
+                            if (response.includes("Error")) {
+                                console.log(response);
+                                menu();
 
-                            let id = JSON.parse(message.value).eliminado;
-                            let mapa = JSON.parse(message.value).mapa;
-                            console.table(mapa);
-
-                            if (id) console.log("Jugador " + id + " ha sido eliminado");
-
-                            if (jugador && id == jugador.id) {
-                                console.log("Has sido eliminado");
-                                process.stdin.removeAllListeners('keypress');
-                                process.exit();
                             }
+
+                            else {
+                                jugador = JSON.parse(response);
+                                console.log("Jugador " + jugador.alias + " con id " + jugador.id + ". Bienvenido a la partida :)");
+
+                                //capturo las teclas 
+                                capturaTecla(jugador.id);
+
+                                //Me suscribo al topico partida y muestro el mapa que recibo de engine
+                                consumer.on('message', (message) => {
+
+                                    let id = JSON.parse(message.value).eliminado;
+                                    let mapa = JSON.parse(message.value).mapa;
+                                    console.table(mapa);
+
+                                    if (id) console.log("Jugador " + id + " ha sido eliminado");
+
+                                    if (jugador && id == jugador.id) {
+                                        console.log("Has sido eliminado");
+                                        process.stdin.removeAllListeners('keypress');
+                                        process.exit();
+                                    }
+                                });
+                            }
+
                         });
                     });
                 });
-            });
 
 
 
-            break;
-        case 'q':
-            console.log('Finalizando proceso correctamente');
-            process.exit(0);
-            break;
-        default:
-            console.log('Opcion no valida, forzado cierre');
-            process.exit(1);
-    }
+                break;
+            case 'q':
+                console.log('Finalizando proceso correctamente');
+
+                process.exit(0);
+                break;
+            default:
+                console.log('Opcion no valida, forzado cierre');
+                process.exit(1);
+        }
 
 
-});
+    });
 
+}
 
+console.log("**BIENVENIDO A AGAINST ALL** ")
+menu();

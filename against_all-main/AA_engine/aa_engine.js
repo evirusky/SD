@@ -2,8 +2,7 @@ const argumentos = require("../arguments.json");
 const reader = require("read-console");
 const { Pool, Client } = require('pg');
 
-const producer = require("./producer.js");
-const { consumerMov, consumerNpc } = require("./consumer.js");
+const { consumerMov, consumerNpc, producer } = require("./kafka.js");
 
 const connectionData = {
     user: argumentos.db.user,
@@ -88,7 +87,7 @@ class Juego {
      * @param {integer} id 
      */
     nuevoJugador(id, alias) {
-        this.countJugadores++;
+        if (id < 1000) this.countJugadores++;
         let posiciones = this.spawns.pop().split('_');
         let x = parseInt(posiciones[0]); let y = parseInt(posiciones[1]);
         this.mapa[x][y] = alias;
@@ -101,12 +100,13 @@ class Juego {
     }
 
     /**
-     * 
-     */
-    nuevoNPC() {
+  * Se añade un nuevo npc en una posicion no ocupada por players o npcs
+  * @returns atributos almacenados para jugar con el formato {id, posX, posY, nivel}
+  */
+    nuevoNPC(id) {
         let x, y, key;
         let valido = false;
-        let id = 'npc_' + this.npcs.size;
+
         let valores = { player_id: null, npc_id: id, mina: false, alimento: false };
         let aux;
         do {
@@ -126,7 +126,7 @@ class Juego {
         let nivel = Math.floor(Math.random() * (MAX));
         this.npcs.set(id, { id: id, posX: x, posY: y, nivel: nivel })
         this.mapa[x][y] = nivel;
-        this.posiciones.set(x + '_' + y,);
+        this.posiciones.set(x + '_' + y, valores);
         return this.npcs.get(id);
     }
 
@@ -226,7 +226,7 @@ class Juego {
         this.posiciones.set(nuevaX + '_' + nuevaY, npc);
         this.mapa[nuevaX][nuevaY] = valores.nivel;
         valores.posX = nuevaX; valores.posY = nuevaY;
-        this.npcs.set(id, valores);
+        this.npcs.set(valores.id, valores);
 
     }
 
@@ -317,10 +317,68 @@ class Juego {
 
     }
 
+    /**
+     * Comprueba las interacciones del NPC en funcion a los desplazamientos
+     * @param {*} id identificador del NPC 
+     * @param {*} x desplazamiento reltaivo en el eje x
+     * @param {*} y desplazamiento relativo en el eje y
+     * @retuns Colision (sin desplazamiento) Eliminado (Si el NPC actual ha sido eliminado) Desplazamiento (si se ha podido desplazar a la posicion deseada)
+     */
     movimientoNPC(id, x, y) {
+        if (!this.npcs.has(id)) return 'Eliminado';
+        let valores = this.npcs.get(id);//{id, posX, posY, nivel}
+        let nuevaX = valores.posX + x;
+        let nuevaY = valores.posY + y;
 
+        if (nuevaX > 19) nuevaX = 0;
+        if (nuevaX < 0) nuevaX = 19;
+        if (nuevaY > 19) nuevaY = 0;
+        if (nuevaY < 0) nuevaY = 19;
+
+        if (this.posiciones.has(nuevaX + '_' + nuevaY)) {//Posicion valida pero ya ocupada, habra interaccion
+            let ocupante = this.posiciones.get(nuevaX + '_' + nuevaY);//{player_id: null o valor, npc_id: null o valor, mina: t/f, alimento: t/f}
+            if (ocupante.player_id != null) {//ocupado por otro player
+                let valoresOcupante = this.jugadores.get(ocupante.player_id);
+                let nivel = valores.nivel;
+                let nivelOcupante = this.obtenerAtaque(valoresOcupante);
+                if (nivel === nivelOcupante) {//Igualados, no hay desplazamiento
+                    return 'Colision';
+                } else if (nivel > nivelOcupante) {//Ocupante pierde, hay desplazamiento
+                    this.eliminarPlayer(valoresOcupante);
+                    this.desplazarNPC(valores, nuevaX, nuevaY);
+                } else {//Ocupante gana, no hay desplazamiento
+                    this.eliminarNPC(valores)
+                    return 'Eliminado';
+                }
+
+            } else if (ocupante.npc_id != null) {//ocupado por un npc
+                let valoresOcupante = this.nps.get(ocupante.npc_id);//valores: {id, posX, posY, nivel}
+                let nivel = valores.nivel;
+                let nivelOcupante = valoresOcupante.nivel;
+                if (nivel === nivelOcupante) {//Igualados, no hay desplazamiento
+                    return 'Colision';
+                } else if (nivel > nivelOcupante) {//Ocupante pierde, hay desplazamiento
+                    this.eliminarNPC(valoresOcupante);
+                    this.desplazarNPC(valores, nuevaX, nuevaY);
+                } else {//Ocupante gana, no hay desplazamiento
+                    this.eliminarNPC(valores)
+                    return 'Eliminado';
+                }
+            }
+            //el npc podria ocultar un alimento o mina
+            if (ocupante.alimento || ocupante.mina) {//El alimento o la mina se oculta por
+                this.desplazarNPC(valores, nuevaX, nuevaY);
+                return 'Desplazamiento';
+
+            }
+        } else {//Posicion valida y libre, habra desplazamiento
+            this.desplazarNPC(valores, nuevaX, nuevaY);
+            return 'Desplazamiento';
+
+        }
     }
 }
+
 
 //Defincion de funciones 
 
@@ -397,7 +455,7 @@ io.on("connection", playerSocket => {
                             callback(JSON.stringify(jugador));
                             console.log(arg.alias + ' se ha conectado correctamente con el id ' + res.rows[0].id);
                         }
-                    } else callback('Error : Credenciales invalidas');
+                    } else callback('Error : Credenciales invalidas ');
                 }
 
             } catch (err) {
@@ -413,9 +471,11 @@ consumerNpc.on('message', (message) => {
     console.log(data);
     if (!juego) return;
     let id = data.id;
-    let x = data.x;
-    let y = data.y;
-    let response = juego.movimientoNPC(id, x, y);
+
+
+    juego.nuevoNPC(id);
+
+    //let response = juego.movimientoNPC(id, x, y);
 })
 
 //KAFKA : ENGINE RECIBE MOVIMIENTO DE PLAYER

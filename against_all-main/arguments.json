@@ -19,7 +19,7 @@
   "db": {
     "user": "root",
     "pass": "root",
-    "host": "192.168.1.104",
+    "host": "localhost",
     "port": 5432,
     "db_name": "Against_All"
   }
