@@ -31,7 +31,6 @@ let juego = null;
 const probSpawn = 0.2;
 const probAlim = 0.15;
 const probMina = 0.1;
-const probVacio = 1 - probMina - probAlim - probSpawn;
 const MAX = 10;
 const MIN = -10;
 /**
@@ -46,11 +45,13 @@ class Juego {
     constructor(max_jugadores, ciudades) {
         this.max_jugadores = max_jugadores;
         this.ciudades = ciudades;
-        this.jugadores = new Map(); //key: id, value: {posX, posY, nivel, EC, EF}
+        this.jugadores = new Map(); //key: id, value: {id, alias, posX, posY, nivel, EC, EF}
+        this.npcs = new Map();
         this.posiciones = new Map();//key: 'x_y', value: {player_id: null o valor, npc_id: null o valor, mina: t/f, alimento: t/f}
         this.spawns = new Array();
         this.mapa = new Array();
         this.estado = 'A la espera';
+        this.countJugadores = 0;
 
         for (let i = 0; i < 20; i++) {
             this.mapa[i] = [];
@@ -86,13 +87,15 @@ class Juego {
      * @param {integer} id 
      */
     nuevoJugador(id, alias) {
+        this.countJugadores++;
         let posiciones = this.spawns.pop().split('_');
-        this.mapa[posiciones[0]][posiciones[1]] = alias;
-        this.posiciones.set(posiciones[0] + '_' + posiciones[1], { player_id: id, npc_id: null, mina: false, alimento: false });
+        let x = parseInt(posiciones[0]); let y = parseInt(posiciones[1]);
+        this.mapa[x][y] = alias;
+        this.posiciones.set(x + '_' + y, { player_id: id, npc_id: null, mina: false, alimento: false });
 
         let ec = Math.floor(Math.random() * (MAX - MIN) + MIN);
         let ef = Math.floor(Math.random() * (MAX - MIN) + MIN);
-        this.jugadores.set(id, { posX: posiciones[0], posY: posiciones[1], nivel: 1, EC: ec, EF: ef })
+        this.jugadores.set(id, { id: id, alias: alias, posX: x, posY: y, nivel: 1, EC: ec, EF: ef })
         return this.jugadores.get(id);
     }
 
@@ -100,11 +103,30 @@ class Juego {
      * 
      */
     nuevoNPC() {
-        let posiciones = this.spawns.pop().split('_');
+        let x, y, key;
+        let valido = false;
+        let id = 'npc_' + this.npcs.size;
+        let valores = { player_id: null, npc_id: id, mina: false, alimento: false };
+        let aux;
+        do {
+            x = Math.floor(Math.random() * (20));
+            y = Math.floor(Math.random() * (20));
+            key = x + '_' + y;
+            valido = !this.posiciones.has(key);
+            if (!valido) {
+                aux = this.posiciones.get(key);
+                if (aux.player_id === null && aux.npc_id === null) {
+                    valido = true;
+                    aux.npc_id = id;
+                    valores = aux;
+                }
+            }
+        } while (!valido);
         let nivel = Math.floor(Math.random() * (MAX));
-        this.mapa[posiciones[0]][posiciones[1]] = nivel;
-        this.posiciones.set(posiciones[0] + '_' + posiciones[1], { player_id: null, npc_id: nivel, mina: false, alimento: false });
-        return this.posiciones.get(posiciones[0] + '_' + posiciones[1]);
+        this.npcs.set(id, { id: id, posX: x, posY: y, nivel: nivel })
+        this.mapa[x][y] = nivel;
+        this.posiciones.set(x + '_' + y,);
+        return this.npcs.get(id);
     }
 
     empezar() {
@@ -113,20 +135,190 @@ class Juego {
     }
 
     lleno() {
-        return this.jugadores.size === this.max_jugadores;
+        return this.countJugadores === this.max_jugadores;
     }
-
 
     /**
-     * 
-     * @param {key} prev apunta al elemento que existia previamente en el mapa
-     * @param {key} actual apunta al elemento que se ha desplazado en el mapa
+     * obtiene el tipo de region en funcion a la temperatura
+     * @param {*} temp 
+     * @returns 1 frio, 0 normal y 1 caliente
      */
-    interaccion(prev, actual) {
+    obtenerEfecto(temp) {
+        if (temp <= 10) {//frio
+            return -1;
+        } else if (temp >= 25) {
+            return 1;//calor
+        } else {
+            return 0;//normal
+        }
+    }
+    /**
+     * Calcula que tipo de region seria
+     * @param {*} x 
+     * @param {*} y 
+     * @returns -1 frio, 0 normal y 1 caliente
+     */
+    obtenerRegion(x, y) {
+        if (x <= 10 && y <= 10) {//Region [0]
+            return this.obtenerEfecto(this.ciudades[0].temp);
+        } else if (x <= 20 && y <= 10) {//Region [1]
+            return this.obtenerEfecto(this.ciudades[1].temp);
+
+        } else if (x <= 10 && y <= 20) {//Region [2]
+            return this.obtenerEfecto(this.ciudades[2].temp);
+
+        } else {//Region [3]
+            return this.obtenerEfecto(this.ciudades[3].temp);
+
+        }
+    }
+
+    /**
+     * Calcula el valor de ataque de un player en funcion a la region en la que se encuentre
+     * @param {*} valores valores del palyer {id, alias, posX, posY, nivel, EC, EF}
+     * @returns el valor de ataque
+     */
+    obtenerAtaque(valores) {//valores: {id, alias, posX, posY, nivel, EC, EF}
+        let efecto = this.obtenerRegion(valores.posX, valores.posY);
+        console.log(efecto);
+        let nivelAtaque;
+        switch (efecto) {
+            case -1:
+                nivelAtaque = valores.nivel + valores.EF;
+                return (nivelAtaque <= 0 ? 0 : nivelAtaque);
+                break;
+            case 1:
+                nivelAtaque = valores.nivel + valores.EC;
+                return (nivelAtaque <= 0 ? 0 : nivelAtaque);
+                break;
+
+            default:
+                return valores.nivel;
+                break;
+        }
+    }
+
+    desplazarPlayer(valores, nuevaX, nuevaY) {//valores: {id, alias, posX, posY, nivel, EC, EF}
+
+        let player = this.posiciones.get(valores.posX + '_' + valores.posY);
+        this.posiciones.delete(valores.posX + '_' + valores.posY);
+        this.mapa[valores.posX][valores.posY] = "";
+
+        this.posiciones.set(nuevaX + '_' + nuevaY, player);
+        this.mapa[nuevaX][nuevaY] = valores.alias;
+        valores.posX = nuevaX; valores.posY = nuevaY;
+        this.jugadores.set(valores.id, valores);
+    }
+
+    eliminarPlayer(valores) {//valores: {id, alias, posX, posY, nivel, EC, EF}
+        this.posiciones.delete(valores.posX + '_' + valores.posY);
+        this.jugadores.delete(valores.id);
+        this.mapa[valores.posX][valores.posY] = "";
+
+    }
+    desplazarNPC(valores, nuevaX, nuevaY) {//valores: {id, posX, posY, nivel}
+
+        let npc = this.posiciones.get(valores.posX + '_' + valores.posY);
+        this.posiciones.delete(valores.posX + '_' + valores.posY);
+        this.mapa[valores.posX][valores.posY] = "";
+
+        this.posiciones.set(nuevaX + '_' + nuevaY, npc);
+        this.mapa[nuevaX][nuevaY] = valores.nivel;
+        valores.posX = nuevaX; valores.posY = nuevaY;
+        this.npcs.set(id, valores);
 
     }
 
+    eliminarNPC(valores) {//valores: {id, posX, posY, nivel}
+        this.posiciones.delete(valores.posX + '_' + valores.posY);
+        this.npcs.delete(valores.id);
+        this.mapa[valores.posX][valores.posY] = "";
 
+    }
+
+    eliminarAlimento(x, y) {
+        this.posiciones.delete(x + '_' + y);
+        this.mapa[x][y] = "";
+    }
+
+    eliminarMina(x, y) {
+        this.posiciones.delete(x + '_' + y);
+        this.mapa[x][y] = "";
+    }
+
+    /**
+     * Comprueba las interacciones del player en funcion a los desplazamientos
+     * @param {*} id identificador del player 
+     * @param {*} x desplazamiento reltaivo en el eje x
+     * @param {*} y desplazamiento relativo en el eje y
+     */
+    movimientoPlayer(id, x, y) {
+        let valores = this.jugadores.get(id);//{id, alias, posX, posY, nivel, EC, EF}
+
+        let nuevaX = valores.posX + x;
+        let nuevaY = valores.posY + y;
+
+        if (nuevaX > 19) nuevaX = 0;
+        if (nuevaX < 0) nuevaX = 19;
+        if (nuevaY > 19) nuevaY = 0;
+        if (nuevaY < 0) nuevaY = 19;
+
+        console.log(nuevaX + '_' + nuevaY);
+
+
+        if (this.posiciones.has(nuevaX + '_' + nuevaY)) {//Posicion valida pero ya ocupada, habra interaccion
+            let ocupante = this.posiciones.get(nuevaX + '_' + nuevaY);//{player_id: null o valor, npc_id: null o valor, mina: t/f, alimento: t/f}
+            if (ocupante.player_id != null) {//ocupado por otro player
+                let valoresOcupante = this.jugadores.get(ocupante.player_id);
+                let nivel = this.obtenerAtaque(valores);
+                let nivelOcupante = this.obtenerAtaque(valoresOcupante);
+                if (nivel === nivelOcupante) {//Igualados, no hay desplazamiento
+                    return 'Colision';
+                } else if (nivel > nivelOcupante) {//Ocupante pierde, hay desplazamiento
+                    this.eliminarPlayer(valoresOcupante);
+                    this.desplazarPlayer(valores, nuevaX, nuevaY);
+                } else {//Ocupante gana, no hay desplazamiento
+                    this.eliminarPlayer(valores)
+                    return 'Eliminado';
+                }
+
+            } else if (ocupante.npc_id != null) {//ocupado por un npc
+                let valoresOcupante = this.nps.get(ocupante.npc_id);//valores: {id, posX, posY, nivel}
+                let nivel = this.obtenerAtaque(valores);
+                let nivelOcupante = valoresOcupante.nivel;
+                if (nivel === nivelOcupante) {//Igualados, no hay desplazamiento
+                    return 'Colision';
+                } else if (nivel > nivelOcupante) {//Ocupante pierde, hay desplazamiento
+                    this.eliminarNPC(valoresOcupante);
+                    this.desplazarPlayer(valores, nuevaX, nuevaY);
+                } else {//Ocupante gana, no hay desplazamiento
+                    this.eliminarPlayer(valores)
+                    return 'Eliminado';
+                }
+            }
+            //el npc podria ocultar un alimento o mina
+            if (ocupante.alimento) {//El alimento desaparece y hay desplazamiento
+                this.eliminarAlimento(nuevaX, nuevaY);
+                valores.nivel++;
+                this.desplazarPlayer(valores, nuevaX, nuevaY);
+                return 'Desplazamiento';
+
+            } else if (ocupante.mina) {//La mina explota y el player muere
+                this.eliminarMina(nuevaX, nuevaY);
+                this.eliminarPlayer(valores);
+                return 'Eliminado';
+            }
+        } else {//Posicion valida y libre, habra desplazamiento
+            this.desplazarPlayer(valores, nuevaX, nuevaY);
+            return 'Desplazamiento';
+
+        }
+
+    }
+
+    movimientoNPC(id, x, y) {
+
+    }
 }
 
 //Defincion de funciones 
@@ -155,106 +347,60 @@ function nuevoClima(id) {
 }
 
 
-function getRandom(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min) + min); // The maximum is exclusive and the minimum is inclusive
-}
+function nuevaPartida() {
 
-function nuevoJuego(max_jugadores) {
-    Juego = new Object();
-    Juego.jugadores = [];
-    Juego.max_jugadores = max_jugadores;
-    Juego.mapa = []
+    if (!weather.connected) throw 'Error : No se ha podido conectar con el servidor de clima';
 
-};
+    weather.emit('totalClimas', 'Partida empezada', async (response) => {
+        let totalClimas = response.count;
+        indiceCiudades(totalClimas);
+        await nuevoClima(idCiudades[0])
+        await nuevoClima(idCiudades[1])
+        await nuevoClima(idCiudades[2])
+        await nuevoClima(idCiudades[3])
 
-//FUNCION PARA PRODUCIR MINAS Y ALIMENTOS ALEATORIOS EN EL MAPA
-function producirMinasAlimentos() {
-    let minas = getRandom(10, 20);
-    let alimentos = getRandom(10, 20);
-
-    for (let i = 0; i < minas; i++) {
-        let x = getRandom(0, 20);
-        let y = getRandom(0, 20);
-        Juego.mapa[x][y] = "M";
-    }
-
-    for (let i = 0; i < alimentos; i++) {
-        let x = getRandom(0, 20);
-        let y = getRandom(0, 20);
-        Juego.mapa[x][y] = "A";
-    }
-}
-
-//PRODUZCO MAPA EN TOPICO PARTIDA CON LOS DATOS DE LOS JUGADORES 
-function creoMapa() {
-
-    Juego.mapa = [];
-
-    for (let i = 0; i < 20; i++) {
-        Juego.mapa[i] = [];
-        for (let j = 0; j < 20; j++) {
-            Juego.mapa[i][j] = "";
-        }
-    }
-    producirMinasAlimentos();
-
-    let payloads = [{ topic: 'partida', messages: JSON.stringify(Juego.mapa), partition: 0 }];
-
-    producer.send(payloads, (err, data) => {
-        if (err) console.log(err);
-    });
-
-}
-
-function ActualizoMapa(id, x, y, antigua_x, antigua_y) {
-    Juego.mapa[x][y] = id;
-    Juego.mapa[antigua_x][antigua_y] = '';
-
-    let payloads = [{ topic: 'partida', messages: JSON.stringify(Juego.mapa), partition: 0 }];
-
-    producer.send(payloads, (err, data) => {
-        if (err) console.log(err);
     });
 }
 
-//CREO LA PARTIDA 
-function crearPartida() {
-    creoMapa();
-}
-//Comunicacion
-
-weather.emit('totalClimas', 'Partida empezada', (response) => {
-    let totalClimas = response.count;
-    indiceCiudades(totalClimas);
-    console.log(idCiudades);
-
-    for (var i = 0; i < 4; i++) {
-        nuevoClima(idCiudades[i])
-            .then(() => { console.log(ciudades) })
-            .catch((err) => { console.log(err) });
-    }
-
-
-});
 
 //Servicios ofrecidos
+
 io.on("connection", playerSocket => {
     pool.connect();
     playerSocket.on('SolAcceso', (arg, callback) => {
         console.log(arg.alias + ' solicita inicio de sesion con ' + arg.password);
-        //necesito el id del usuario para pasarle al player 
-        pool.query('SELECT count(*)  from user_db WHERE alias=\'' + arg.alias + '\' and password=\'' + arg.password + '\'', (err, res) => {
-            console.log(res.rows[0]);
-            if (err) callback('Error inesperado');
-            else {
-                if (res.rows[0].count === '1') {
-                    callback('OK');
-                    //playerSocket.emit('Acceso', 'OK');
-                    console.log("CREANDO MAPA ... ");
-                    crearPartida();
-                } else callback('no existe');
+        pool.query('SELECT id from user_db WHERE alias=\'' + arg.alias + '\' and password=\'' + arg.password + '\'', async (err, res) => {
+            try {
+                if (err) callback('Error inesperado');
+                else {
+                    if (res.rowCount === 1) {
+
+                        if (juego === null) {//Instancia no generada
+                            await nuevaPartida();
+                            juego = new Juego(argumentos.engine.max_jugadores, ciudades);
+                            juego.empezar();
+                        }
+
+                        if (juego.estado === 'empezado' && juego.lleno()) {//Instancia de juego en marcha o esta llena
+                            callback('Error : juego lleno')
+                            console.log(arg.alias + ' no ha podido unirse ya que la partida esta en marcha o llena');
+                        } else {
+                            if (juego.jugadores.get(res.rows[0].id)) {
+                                callback('Error : ya estas conectado');
+                                console.log(arg.alias + ' no ha podido unirse ya que ya esta en partida');
+                                return;
+                            }
+
+                            const jugador = juego.nuevoJugador(res.rows[0].id, arg.alias);
+                            console.log(jugador);
+                            callback(JSON.stringify(jugador));
+                            console.log(arg.alias + ' se ha conectado correctamente con el id ' + res.rows[0].id);
+                        }
+                    } else callback('Error : Credenciales invalidas');
+                }
+
+            } catch (err) {
+                callback("Error : " + err);
             }
         });
 
@@ -266,35 +412,24 @@ io.on("connection", playerSocket => {
 consumer.on('message', (message) => {
     //console.log(message.value);
     let movimiento = JSON.parse(message.value);
+    //console.log(movimiento);
+    if (!juego) return;
+    if (!juego.jugadores.get(movimiento.id)) return;
+    let estado = juego.movimientoPlayer(movimiento.id, movimiento.x, movimiento.y);
 
-    pool.query('SELECT id, x, y FROM user_db WHERE alias=\'' + movimiento.alias + '\'', (err, res) => {
-        if (err) console.log('Error inesperado');
-        else {
-            let id = res.rows[0].id;
-            //console.log(id);
+    if (estado === 'Eliminado') {
+        console.log('El jugador ' + movimiento.id + ' ha sido eliminado');
+        io.emit('Eliminado', movimiento.id);
+    } else if (estado === 'Colision') {
+        console.log('El jugador ' + movimiento.id + ' ha colisionado.');
+    } else if (estado === 'Desplazamiento') {
+        // console.log(juego.jugadores.get(movimiento.id));
+    }
 
+    let payloads = [{ topic: 'partida', messages: JSON.stringify(juego.mapa), partition: 0 }];
 
-            //ACTUALIZO LAS COORDENADAS ANTIGUAS DEL PLAYER
-            let antigua_x = res.rows[0].x;
-            let antigua_y = res.rows[0].y;
-            let x_nueva = res.rows[0].x + movimiento.x;
-            let y_nueva = res.rows[0].y + movimiento.y;
-
-            //COMPRUEBO QUE NO SE SALGA DEL MAPA
-            if (x_nueva < 0 || x_nueva > 19 || y_nueva < 0 || y_nueva > 19) {
-                console.log("LIMITE DEL MAPA!!");
-                //se queda en su posicion antigua
-            } else {
-                pool.query('UPDATE user_db SET x=' + x_nueva + ', y=' + y_nueva + ' WHERE id=' + id + '', (err, res) => {
-                    if (err) console.log('Error inesperado');
-                    else {
-                        //console.log('Coordenadas actualizadas ' + x_nueva + ' ' + y_nueva + ' de ' + id);
-                        ActualizoMapa(id, x_nueva, y_nueva, antigua_x, antigua_y);
-                    }
-                });
-            }
-
-        }
+    producer.send(payloads, (err, data) => {
+        if (err) console.log(err);
     });
 
 });

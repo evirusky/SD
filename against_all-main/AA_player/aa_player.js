@@ -10,11 +10,12 @@ const consumer = require("./consumer.js");
 const registry = io("http://" + argumentos.registry.ip + ":" + argumentos.registry.port);
 const engine = io("http://" + argumentos.engine.ip + ":" + argumentos.engine.port);
 
+let jugador;
 
 //Función captura tecla pulsada por teclado y almacena las coordenadas
-function capturaTecla(alias) {
+function capturaTecla(id) {
 
-    let usuario = { x: 0, y: 0, alias: alias };
+    let usuario = { x: 0, y: 0, id: id };
 
     readline.emitKeypressEvents(process.stdin);
     if (process.stdin.isTTY)
@@ -49,8 +50,8 @@ function capturaTecla(alias) {
 
     });
 
-    return usuario;
 }
+
 
 //MENÚ
 console.log("**BIENVENIDO** \n1.Crear perfil. \n2.Editar peril. \n3.Unirse a la partida\nq.Salir ");
@@ -86,12 +87,24 @@ reader.read(">", (opcion) => {
                 reader.read("Contraseña : ", (password) => {
                     //autentifico por sockets a engine
                     engine.emit("SolAcceso", { alias, password }, (response) => {
-                        console.log(response, " : usuario autentificado");
+                        //console.log(response);
+                        if (response.includes("Error")) {
+                            console.log(response);
+                            return;
+                        }
+
+                        jugador = JSON.parse(response);
+                        console.log("Jugador " + jugador.alias + " con id " + jugador.id + ". Bienvenido a la partida :)");
 
                         //capturo las teclas 
-                        let usuario = capturaTecla(alias);
+                        capturaTecla(jugador.id);
 
+                        //Me suscribo al topico partida y muestro el mapa que recibo de engine
+                        consumer.on('message', (message) => {
 
+                            let mapa = JSON.parse(message.value);
+                            console.table(mapa);
+                        });
                     });
                 });
             });
@@ -111,12 +124,14 @@ reader.read(">", (opcion) => {
 
 });
 
-//Me suscribo al topico partida y muestro el mapa que recibo de engine
-consumer.on('message', (message) => {
 
-    let mapa = JSON.parse(message.value);
-    console.table(mapa);
+
+
+engine.on("Eliminado", (id) => {
+    console.log("Jugador " + id + " eliminado");
+    if (jugador && id == jugador.id) {
+        console.log("Has sido eliminado");
+        process.stdin.removeAllListeners('keypress');
+        process.exit();
+    }
 });
-
-
-
