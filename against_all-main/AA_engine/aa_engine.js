@@ -144,7 +144,7 @@ class Juego {
    * @returns true si la partida esta llena, false en el caso contrario
    */
     lleno() {
-        return this.jugadores.size === this.max_jugadores;
+        return this.countJugadores === this.max_jugadores;
     }
 
     /**
@@ -170,7 +170,7 @@ class Juego {
     obtenerRegion(x, y) {
         if (x < 10 && y < 10) {//Region [0]
             return this.obtenerEfecto(this.ciudades[0].temp);
-        } else if (x < 20 && y < 10) {//Region [1]
+        } else if (x <= 20 && y <= 10) {//Region [1]
             return this.obtenerEfecto(this.ciudades[1].temp);
 
         } else if (x < 10 && y < 20) {//Region [2]
@@ -205,7 +205,23 @@ class Juego {
                 break;
         }
     }
+    /**
+     * Logica de desplazamiento del Player
+     * @param {*} valores {id, alias, posX, posY, nivel, EC, EF} que representan al player que se desplaza
+     * @param {*} nuevaX posicion en el eje x
+     * @param {*} nuevaY posicion en el eje y
+     */
+    desplazarPlayer(valores, nuevaX, nuevaY) {//valores: {id, alias, posX, posY, nivel, EC, EF}
 
+        let player = this.posiciones.get(valores.posX + '_' + valores.posY);
+        this.posiciones.delete(valores.posX + '_' + valores.posY);
+        this.mapa[valores.posX][valores.posY] = "";
+
+        this.posiciones.set(nuevaX + '_' + nuevaY, player);
+        this.mapa[nuevaX][nuevaY] = valores.alias;
+        valores.posX = nuevaX; valores.posY = nuevaY;
+        this.jugadores.set(valores.id, valores);
+    }
     /**
         * Logica de desplazamiento del NPC
         * @param {*} valores {id, posX, posY, nivel} que representan al NPC que se desplaza
