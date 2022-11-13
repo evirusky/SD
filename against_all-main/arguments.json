@@ -2,7 +2,7 @@
   "engine": {
     "ip": "localhost",
     "port": 2334,
-    "max_jugadores": 1
+    "max_jugadores": 3
   },
   "registry": {
     "ip": "localhost",

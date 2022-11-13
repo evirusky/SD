@@ -3,7 +3,7 @@ const reader = require("read-console");
 const { Pool, Client } = require('pg');
 
 const producer = require("./producer.js");
-const consumer = require("./consumer.js");
+const { consumerMov, consumerNpc } = require("./consumer.js");
 
 const connectionData = {
     user: argumentos.db.user,
@@ -19,6 +19,7 @@ const io = require('socket.io')();
 
 //cliente para clima 
 const io_client = require('socket.io-client');
+const consumer = require("../AA_player/consumer");
 const weather = io_client("http://" + argumentos.clima.ip + ":" + argumentos.clima.port);
 
 
@@ -405,13 +406,23 @@ io.on("connection", playerSocket => {
         });
 
     });
-
 });
 
+consumerNpc.on('message', (message) => {
+    let data = JSON.parse(message.value);
+    console.log(data);
+    if (!juego) return;
+    let id = data.id;
+    let x = data.x;
+    let y = data.y;
+    let response = juego.movimientoNPC(id, x, y);
+})
+
 //KAFKA : ENGINE RECIBE MOVIMIENTO DE PLAYER
-consumer.on('message', (message) => {
+consumerMov.on('message', (message) => {
     //console.log(message.value);
     let movimiento = JSON.parse(message.value);
+    let eliminado;
     //console.log(movimiento);
     if (!juego) return;
     if (!juego.jugadores.get(movimiento.id)) return;
@@ -419,19 +430,18 @@ consumer.on('message', (message) => {
 
     if (estado === 'Eliminado') {
         console.log('El jugador ' + movimiento.id + ' ha sido eliminado');
-        io.emit('Eliminado', movimiento.id);
+        eliminado = movimiento.id;
     } else if (estado === 'Colision') {
         console.log('El jugador ' + movimiento.id + ' ha colisionado.');
     } else if (estado === 'Desplazamiento') {
         // console.log(juego.jugadores.get(movimiento.id));
     }
 
-    let payloads = [{ topic: 'partida', messages: JSON.stringify(juego.mapa), partition: 0 }];
+    let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado, mapa: juego.mapa }), partition: 0 }];
 
     producer.send(payloads, (err, data) => {
         if (err) console.log(err);
     });
-
 });
 
 

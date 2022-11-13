@@ -102,8 +102,17 @@ reader.read(">", (opcion) => {
                         //Me suscribo al topico partida y muestro el mapa que recibo de engine
                         consumer.on('message', (message) => {
 
-                            let mapa = JSON.parse(message.value);
+                            let id = JSON.parse(message.value).eliminado;
+                            let mapa = JSON.parse(message.value).mapa;
                             console.table(mapa);
+
+                            if (id) console.log("Jugador " + id + " ha sido eliminado");
+
+                            if (jugador && id == jugador.id) {
+                                console.log("Has sido eliminado");
+                                process.stdin.removeAllListeners('keypress');
+                                process.exit();
+                            }
                         });
                     });
                 });
@@ -125,13 +134,3 @@ reader.read(">", (opcion) => {
 });
 
 
-
-
-engine.on("Eliminado", (id) => {
-    console.log("Jugador " + id + " eliminado");
-    if (jugador && id == jugador.id) {
-        console.log("Has sido eliminado");
-        process.stdin.removeAllListeners('keypress');
-        process.exit();
-    }
-});
