@@ -34,7 +34,7 @@ const probMina = 0.1;
 const MAX = 10;
 const MIN = -10;
 /**
- * Clase que
+ * Clase que implementa la logica del Against All
  */
 class Juego {
     /**
@@ -84,7 +84,9 @@ class Juego {
 
     /**
      * Se añade un nuevo jugador a la lista de jugadores activos
-     * @param {integer} id 
+     * @param {integer} id id del jugador
+     * @param {integer} alias alias del jugador
+     * @returns atributos almacenados para jugar con el formato {id, alias, posX, posY, nivel, EC, EF} 
      */
     nuevoJugador(id, alias) {
         if (id < 1000) this.countJugadores++;
@@ -100,9 +102,9 @@ class Juego {
     }
 
     /**
-  * Se añade un nuevo npc en una posicion no ocupada por players o npcs
-  * @returns atributos almacenados para jugar con el formato {id, posX, posY, nivel}
-  */
+     * Se añade un nuevo npc en una posicion no ocupada por players o npcs
+     * @returns atributos almacenados para jugar con el formato {id, posX, posY, nivel}
+     */
     nuevoNPC(id) {
         let x, y, key;
         let valido = false;
@@ -129,18 +131,24 @@ class Juego {
         this.posiciones.set(x + '_' + y, valores);
         return this.npcs.get(id);
     }
-
+    /**
+     * Logica interna para eliminar la posibilidad de nuevos jugadores en una partida empezada
+     */
     empezar() {
         this.estado = 'empezado';
         this.spawn = new Array();
     }
 
+    /**
+   * Comprueba que la partida este llena
+   * @returns true si la partida esta llena, false en el caso contrario
+   */
     lleno() {
-        return this.countJugadores === this.max_jugadores;
+        return this.jugadores.size === this.max_jugadores;
     }
 
     /**
-     * obtiene el tipo de region en funcion a la temperatura
+     * Obtiene el tipo de region en funcion a la temperatura
      * @param {*} temp 
      * @returns 1 frio, 0 normal y 1 caliente
      */
@@ -160,12 +168,12 @@ class Juego {
      * @returns -1 frio, 0 normal y 1 caliente
      */
     obtenerRegion(x, y) {
-        if (x <= 10 && y <= 10) {//Region [0]
+        if (x < 10 && y < 10) {//Region [0]
             return this.obtenerEfecto(this.ciudades[0].temp);
-        } else if (x <= 20 && y <= 10) {//Region [1]
+        } else if (x < 20 && y < 10) {//Region [1]
             return this.obtenerEfecto(this.ciudades[1].temp);
 
-        } else if (x <= 10 && y <= 20) {//Region [2]
+        } else if (x < 10 && y < 20) {//Region [2]
             return this.obtenerEfecto(this.ciudades[2].temp);
 
         } else {//Region [3]
@@ -181,7 +189,6 @@ class Juego {
      */
     obtenerAtaque(valores) {//valores: {id, alias, posX, posY, nivel, EC, EF}
         let efecto = this.obtenerRegion(valores.posX, valores.posY);
-        console.log(efecto);
         let nivelAtaque;
         switch (efecto) {
             case -1:
@@ -199,59 +206,79 @@ class Juego {
         }
     }
 
-    desplazarPlayer(valores, nuevaX, nuevaY) {//valores: {id, alias, posX, posY, nivel, EC, EF}
-
-        let player = this.posiciones.get(valores.posX + '_' + valores.posY);
-        this.posiciones.delete(valores.posX + '_' + valores.posY);
-        this.mapa[valores.posX][valores.posY] = "";
-
-        this.posiciones.set(nuevaX + '_' + nuevaY, player);
-        this.mapa[nuevaX][nuevaY] = valores.alias;
-        valores.posX = nuevaX; valores.posY = nuevaY;
-        this.jugadores.set(valores.id, valores);
-    }
-
-    eliminarPlayer(valores) {//valores: {id, alias, posX, posY, nivel, EC, EF}
-        this.posiciones.delete(valores.posX + '_' + valores.posY);
-        this.jugadores.delete(valores.id);
-        this.mapa[valores.posX][valores.posY] = "";
-
-    }
+    /**
+        * Logica de desplazamiento del NPC
+        * @param {*} valores {id, posX, posY, nivel} que representan al NPC que se desplaza
+        * @param {*} nuevaX posicion en el eje x
+        * @param {*} nuevaY posicion en el eje y
+        */
     desplazarNPC(valores, nuevaX, nuevaY) {//valores: {id, posX, posY, nivel}
 
         let npc = this.posiciones.get(valores.posX + '_' + valores.posY);
-        this.posiciones.delete(valores.posX + '_' + valores.posY);
-        this.mapa[valores.posX][valores.posY] = "";
+        let previo = "";
+        if (npc.mina) {
+            npc.mina = false;
+            previo = "M";
+            this.posiciones.set(valores.posX + '_' + valores.posY, { player_id: null, npc_id: null, mina: true, alimento: false })
+        } else if (npc.alimento) {
+            npc.alimento = false;
+            previo = "A";
+            this.posiciones.set(valores.posX + '_' + valores.posY, { player_id: null, npc_id: null, mina: false, alimento: true })
+        } else {
+            this.posiciones.delete(valores.posX + '_' + valores.posY);
 
-        this.posiciones.set(nuevaX + '_' + nuevaY, npc);
+        }
+        this.mapa[valores.posX][valores.posY] = previo;
+        if (this.posiciones.has(nuevaX + '_' + nuevaY)) {
+            let nuevoNPC = this.posiciones.get(nuevaX + '_' + nuevaY)
+            nuevoNPC.npc_id = npc.npc_id;
+            this.posiciones.set(nuevaX + '_' + nuevaY, nuevoNPC);
+        } else {
+            this.posiciones.set(nuevaX + '_' + nuevaY, npc);
+        }
+
         this.mapa[nuevaX][nuevaY] = valores.nivel;
         valores.posX = nuevaX; valores.posY = nuevaY;
         this.npcs.set(valores.id, valores);
 
     }
-
+    /**
+    * Logica de eliminacion del player
+    * @param {*} valores {id, posX, posY, nivel} que representa al NPC que se elimina
+    */
     eliminarNPC(valores) {//valores: {id, posX, posY, nivel}
         this.posiciones.delete(valores.posX + '_' + valores.posY);
         this.npcs.delete(valores.id);
         this.mapa[valores.posX][valores.posY] = "";
 
     }
-
+    /**
+     * Se elimina un alimento
+     * @param {*} x posicion en el eje x
+     * @param {*} y posicion en el eje y
+     */
     eliminarAlimento(x, y) {
         this.posiciones.delete(x + '_' + y);
         this.mapa[x][y] = "";
     }
 
+    /**
+     * Se elimina una mina
+     * @param {*} x posicion en el eje x
+     * @param {*} y posicion en el eje y
+     */
     eliminarMina(x, y) {
         this.posiciones.delete(x + '_' + y);
         this.mapa[x][y] = "";
     }
+
 
     /**
      * Comprueba las interacciones del player en funcion a los desplazamientos
      * @param {*} id identificador del player 
      * @param {*} x desplazamiento reltaivo en el eje x
      * @param {*} y desplazamiento relativo en el eje y
+     * @retuns Colision (sin desplazamiento) Eliminado (Si el player actual ha sido eliminado) Desplazamiento (si se ha podido desplazar a la posicion deseada)
      */
     movimientoPlayer(id, x, y) {
         let valores = this.jugadores.get(id);//{id, alias, posX, posY, nivel, EC, EF}
