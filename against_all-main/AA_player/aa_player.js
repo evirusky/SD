@@ -1,11 +1,11 @@
 const argumentos = require("../arguments.json");
 const reader = require("read-console");
 const readline = require('readline');
+const md5 = require("md5");
 
 const io = require("socket.io-client");
 
-const producer = require("./producer.js");
-const consumer = require("./consumer.js");
+const { consumer, producer } = require("./kafka.js");
 
 const registry = io("http://" + argumentos.registry.ip + ":" + argumentos.registry.port);
 const engine = io("http://" + argumentos.engine.ip + ":" + argumentos.engine.port);
@@ -66,7 +66,7 @@ function menu() {
                         //autentifico por sockets a engine
                         if (!registry.connected) console.log('Error : No se ha podido conectar con el servidor registry');
 
-                        registry.emit("nuevoUsuario", { alias, password }, (response) => {
+                        registry.emit("nuevoUsuario", { alias, password: md5(password) }, (response) => {
                             console.log(response);
                             menu();
                         });
@@ -81,7 +81,7 @@ function menu() {
                         reader.read("Nueva Contraseña : ", (nPassword) => {
                             //autentifico por sockets a engine
                             if (!registry.connected) console.log("Error : No se ha podido conectar al servidor registry");
-                            registry.emit("modificarUsuario", { alias, password, nPassword }, (response) => {
+                            registry.emit("modificarUsuario", { alias, password: md5(password), nPassword: md5(nPassword) }, (response) => {
                                 console.log(response);
                                 menu();
                             });
@@ -100,7 +100,7 @@ function menu() {
 
 
 
-                        engine.emit("SolAcceso", { alias, password }, (response) => {
+                        engine.emit("SolAcceso", { alias, password: md5(password) }, (response) => {
                             //console.log(response);
                             if (response.includes("Error")) {
                                 console.log(response);

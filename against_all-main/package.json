@@ -15,9 +15,11 @@
     "topicos": "node ./createTopics.js"
   },
   "dependencies": {
+    "console.table": "^0.10.0",
     "kafka-node": "^5.0.0",
+    "md5": "^2.3.0",
     "read-console": "^1.0.3",
-    "sequelize": "^6.25.3",
+    "sequelize": "^6.25.5",
     "socket.io": "^4.5.3",
     "socket.io-client": "^4.5.3"
   },

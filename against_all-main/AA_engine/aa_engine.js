@@ -1,6 +1,8 @@
 const argumentos = require("../arguments.json");
 const reader = require("read-console");
+const { Sequelize } = require('sequelize');
 const { Pool, Client } = require('pg');
+const md5 = require("md5");
 
 const { consumerMov, consumerNpc, producer } = require("./kafka.js");
 
@@ -11,6 +13,44 @@ const connectionData = {
     password: argumentos.db.pass,
     port: argumentos.db.port,
 }
+//Inicia sesion sequelize con los datos de conectionData
+const sequelize = new Sequelize(connectionData.database, connectionData.user, connectionData.password, {
+    host: connectionData.host,
+    port: connectionData.port,
+    dialect: 'postgres',
+    logging: false
+
+});
+const User = sequelize.define('user_db', {
+    id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+    alias: { type: Sequelize.STRING, allowNull: false },
+    password: { type: Sequelize.STRING, allowNull: false },
+    level: { type: Sequelize.INTEGER, defaultValue: 1 },
+    ec: { type: Sequelize.INTEGER, defaultValue: 0 },
+    ef: { type: Sequelize.INTEGER, defaultValue: 100 },
+    x: { type: Sequelize.INTEGER, defaultValue: 0 },
+    y: { type: Sequelize.INTEGER, defaultValue: 0 }
+}, {
+    freezeTableName: true,
+    timestamps: false,
+
+    // If don't want createdAt
+    createdAt: false,
+
+    // If don't want updatedAt
+    updatedAt: false
+
+});
+
+/** Hasea la contraseña y la guarda en la base de datos 
+User.findAll().then(users => {
+    users.forEach(user => {
+        user.password = md5(user.password);
+        user.save();
+    });
+}); 
+*/
+
 const pool = new Pool(connectionData);
 
 //servidor para registry y engine
@@ -18,7 +58,6 @@ const io = require('socket.io')();
 
 //cliente para clima 
 const io_client = require('socket.io-client');
-const consumer = require("../AA_player/consumer");
 const weather = io_client("http://" + argumentos.clima.ip + ":" + argumentos.clima.port);
 
 
@@ -240,6 +279,7 @@ class Juego {
         */
     desplazarNPC(valores, nuevaX, nuevaY) {//valores: {id, posX, posY, nivel}
 
+
         let npc = this.posiciones.get(valores.posX + '_' + valores.posY);
         let previo = "";
         if (npc.mina) {
@@ -262,7 +302,6 @@ class Juego {
         } else {
             this.posiciones.set(nuevaX + '_' + nuevaY, npc);
         }
-
         this.mapa[nuevaX][nuevaY] = valores.nivel;
         valores.posX = nuevaX; valores.posY = nuevaY;
         this.npcs.set(valores.id, valores);
@@ -317,6 +356,16 @@ class Juego {
         if (nuevaX < 0) nuevaX = 19;
         if (nuevaY > 19) nuevaY = 0;
         if (nuevaY < 0) nuevaY = 19;
+
+        //ALMACENO EL VALOR DEL JUGAODR EN LA BD
+        User.findByPk(id).then(user => {
+            user.x = nuevaX;
+            user.y = nuevaY;
+            user.level = valores.nivel;
+            user.ec = valores.EC;
+            user.ef = valores.EF;
+            user.save();
+        });
 
         console.log(nuevaX + '_' + nuevaY);
 
@@ -520,16 +569,35 @@ io.on("connection", playerSocket => {
     });
 });
 
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1) + min); // The maximum is inclusive and the minimum is inclusive
+}
+
 consumerNpc.on('message', (message) => {
     let data = JSON.parse(message.value);
-    console.log(data);
+    //console.log(data);
     if (!juego) return;
     let id = data.id;
 
+    if (!juego.npcs.has(id)) {
+        npc = juego.nuevoNPC(id);
+        console.log(npc);
 
-    //juego.nuevoNPC(id);
+        x = getRandomInt(0, -1);
+        y = getRandomInt(0, -1);
+        let response = juego.movimientoNPC(npc.id, x, y);
 
-    //let response = juego.movimientoNPC(id, x, y);
+        if (response === 'Eliminado') {
+            console.log('El npc ' + id + ' ha sido eliminado');
+            eliminado = id;
+        } else if (response === 'Colision') {
+            console.log('El npc ' + id + ' ha colisionado.');
+        }
+    }
+    else console.log("El npc ya existe");
+
 })
 
 //KAFKA : ENGINE RECIBE MOVIMIENTO DE PLAYER
@@ -544,6 +612,7 @@ consumerMov.on('message', (message) => {
 
     if (estado === 'Eliminado') {
         console.log('El jugador ' + movimiento.id + ' ha sido eliminado');
+
         eliminado = movimiento.id;
     } else if (estado === 'Colision') {
         console.log('El jugador ' + movimiento.id + ' ha colisionado.');
