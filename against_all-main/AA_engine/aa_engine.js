@@ -170,7 +170,7 @@ class Juego {
     obtenerRegion(x, y) {
         if (x < 10 && y < 10) {//Region [0]
             return this.obtenerEfecto(this.ciudades[0].temp);
-        } else if (x <= 20 && y <= 10) {//Region [1]
+        } else if (x < 20 && y < 10) {//Region [1]
             return this.obtenerEfecto(this.ciudades[1].temp);
 
         } else if (x < 10 && y < 20) {//Region [2]
@@ -221,6 +221,16 @@ class Juego {
         this.mapa[nuevaX][nuevaY] = valores.alias;
         valores.posX = nuevaX; valores.posY = nuevaY;
         this.jugadores.set(valores.id, valores);
+    }
+    /**
+ * Logica de eliminacion del player
+ * @param {*} valores {id, alias, posX, posY, nivel, EC, EF} que representa al player que se elimina
+ */
+    eliminarPlayer(valores) {//valores: {id, alias, posX, posY, nivel, EC, EF}
+        this.posiciones.delete(valores.posX + '_' + valores.posY);
+        this.jugadores.delete(valores.id);
+        this.mapa[valores.posX][valores.posY] = "";
+
     }
     /**
         * Logica de desplazamiento del NPC
@@ -297,6 +307,7 @@ class Juego {
      * @retuns Colision (sin desplazamiento) Eliminado (Si el player actual ha sido eliminado) Desplazamiento (si se ha podido desplazar a la posicion deseada)
      */
     movimientoPlayer(id, x, y) {
+        if (!this.jugadores.has(id)) return 'Eliminado';
         let valores = this.jugadores.get(id);//{id, alias, posX, posY, nivel, EC, EF}
 
         let nuevaX = valores.posX + x;
@@ -327,7 +338,7 @@ class Juego {
                 }
 
             } else if (ocupante.npc_id != null) {//ocupado por un npc
-                let valoresOcupante = this.nps.get(ocupante.npc_id);//valores: {id, posX, posY, nivel}
+                let valoresOcupante = this.npcs.get(ocupante.npc_id);//valores: {id, posX, posY, nivel}
                 let nivel = this.obtenerAtaque(valores);
                 let nivelOcupante = valoresOcupante.nivel;
                 if (nivel === nivelOcupante) {//Igualados, no hay desplazamiento
@@ -395,7 +406,7 @@ class Juego {
                 }
 
             } else if (ocupante.npc_id != null) {//ocupado por un npc
-                let valoresOcupante = this.nps.get(ocupante.npc_id);//valores: {id, posX, posY, nivel}
+                let valoresOcupante = this.npcs.get(ocupante.npc_id);//valores: {id, posX, posY, nivel}
                 let nivel = valores.nivel;
                 let nivelOcupante = valoresOcupante.nivel;
                 if (nivel === nivelOcupante) {//Igualados, no hay desplazamiento
@@ -516,7 +527,7 @@ consumerNpc.on('message', (message) => {
     let id = data.id;
 
 
-    juego.nuevoNPC(id);
+    //juego.nuevoNPC(id);
 
     //let response = juego.movimientoNPC(id, x, y);
 })
