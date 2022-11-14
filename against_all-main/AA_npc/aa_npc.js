@@ -4,16 +4,10 @@ const reader = require("read-console");
 const client = new kafka.KafkaClient({ kafkaHost: 'localhost:9092' });
 const producer = new kafka.Producer(client);
 
-client.createTopics(["npc"], (err, result) => {
-    if (err)
-        console.error("Error: ", err);
-    else
-        console.log("Result: ", result);
-});
 
 
-setInterval(() => {
 
+function leerID() {
     reader.read("", (id) => {
 
         let npc = { id: id };
@@ -25,9 +19,12 @@ setInterval(() => {
         producer.send(payloads, (err, data) => {
             if (err) console.error(err);
             console.log("Enviado: ", npc);
+            leerID();
         });
 
-    });
-}, 2000);
 
+    });
+};
+
+leerID();
 

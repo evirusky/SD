@@ -11,7 +11,8 @@
     "player": "node ./AA_player/aa_player.js",
     "registry": "node ./AA_registry/aa_registry.js",
     "weather": "node ./AA_weather/aa_weather.js",
-    "npc": "node ./AA_npc/aa_npc.js"
+    "npc": "node ./AA_npc/aa_npc.js",
+    "topicos": "node ./createTopics.js"
   },
   "dependencies": {
     "kafka-node": "^5.0.0",
