@@ -6,6 +6,8 @@ const md5 = require("md5");
 
 const { consumerMov, consumerNpc, producer } = require("./kafka.js");
 
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 const connectionData = {
     user: argumentos.db.user,
     host: argumentos.db.host,
@@ -121,6 +123,9 @@ class Juego {
 
     }
 
+
+
+
     /**
      * Se añade un nuevo jugador a la lista de jugadores activos
      * @param {integer} id id del jugador
@@ -192,6 +197,7 @@ class Juego {
      * @returns 1 frio, 0 normal y 1 caliente
      */
     obtenerEfecto(temp) {
+        if (!temp) return;
         if (temp <= 10) {//frio
             return -1;
         } else if (temp >= 25) {
@@ -209,6 +215,7 @@ class Juego {
     obtenerRegion(x, y) {
         if (x < 10 && y < 10) {//Region [0]
             return this.obtenerEfecto(this.ciudades[0].temp);
+
         } else if (x < 20 && y < 10) {//Region [1]
             return this.obtenerEfecto(this.ciudades[1].temp);
 
@@ -281,6 +288,7 @@ class Juego {
 
 
         let npc = this.posiciones.get(valores.posX + '_' + valores.posY);
+        if (!npc) return;
         let previo = "";
         if (npc.mina) {
             npc.mina = false;
@@ -367,7 +375,7 @@ class Juego {
             user.save();
         });
 
-        console.log(nuevaX + '_' + nuevaY);
+
 
 
         if (this.posiciones.has(nuevaX + '_' + nuevaY)) {//Posicion valida pero ya ocupada, habra interaccion
@@ -395,6 +403,7 @@ class Juego {
                 } else if (nivel > nivelOcupante) {//Ocupante pierde, hay desplazamiento
                     this.eliminarNPC(valoresOcupante);
                     this.desplazarPlayer(valores, nuevaX, nuevaY);
+                    return 'Eliminado';
                 } else {//Ocupante gana, no hay desplazamiento
                     this.eliminarPlayer(valores)
                     return 'Eliminado';
@@ -480,6 +489,8 @@ class Juego {
 
         }
     }
+
+
 }
 
 
@@ -503,6 +514,7 @@ function nuevoClima(id) {
         weather.emit('SolClima', id, (response) => {
             if (response === 'Error inesperado') reject(response);
             ciudades.push(response);
+
             resolve();
         });
     });
@@ -524,8 +536,14 @@ function nuevaPartida() {
     });
 }
 
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1) + min); // The maximum is inclusive and the minimum is inclusive
+}
 
-//Servicios ofrecidos
+
+//CONEXION CON PLAYER 
 
 io.on("connection", playerSocket => {
     pool.connect();
@@ -538,14 +556,24 @@ io.on("connection", playerSocket => {
                     if (res.rowCount === 1) {
 
                         if (juego === null) {//Instancia no generada
+
+                            console.log(ciudades);
                             await nuevaPartida();
+                            console.log(ciudades);
                             juego = new Juego(argumentos.engine.max_jugadores, ciudades);
-                            juego.empezar();
+                            console.log(juego.ciudades, juego.max_jugadores);
+
+                            playerSocket.emit('empiezo', '\x1b[93mCreada nueva partida. Esperando jugadores...\x1b[0m ');
+
+                            //Espero 5 segudos a que se unan jugadores 
+                            await delay(5000);
+                            juego.empezar(); //cambio estado = 'empezado'
+
                         }
 
                         if (juego.estado === 'empezado' && juego.lleno()) {//Instancia de juego en marcha o esta llena
                             callback('Error : juego lleno')
-                            console.log(arg.alias + ' no ha podido unirse ya que la partida esta en marcha o llena');
+                            console.log(arg.alias + ' no ha podido unirse ya que la partida esta en marcha o llena.');
                         } else {
                             if (juego.jugadores.get(res.rows[0].id)) {
                                 callback('Error : ya estas conectado');
@@ -569,11 +597,6 @@ io.on("connection", playerSocket => {
     });
 });
 
-function getRandomInt(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1) + min); // The maximum is inclusive and the minimum is inclusive
-}
 
 consumerNpc.on('message', (message) => {
     let data = JSON.parse(message.value);
@@ -585,46 +608,68 @@ consumerNpc.on('message', (message) => {
         npc = juego.nuevoNPC(id);
         console.log(npc);
 
-        x = getRandomInt(0, -1);
-        y = getRandomInt(0, -1);
-        let response = juego.movimientoNPC(npc.id, x, y);
-
-        if (response === 'Eliminado') {
-            console.log('El npc ' + id + ' ha sido eliminado');
-            eliminado = id;
-        } else if (response === 'Colision') {
-            console.log('El npc ' + id + ' ha colisionado.');
-        }
     }
     else console.log("El npc ya existe");
 
 })
 
+let winner = false;
 //KAFKA : ENGINE RECIBE MOVIMIENTO DE PLAYER
 consumerMov.on('message', (message) => {
     //console.log(message.value);
     let movimiento = JSON.parse(message.value);
     let eliminado;
     //console.log(movimiento);
+    //console.log(juego.ciudades);
+
+    if (!juego) return;
+    if (juego.npcs.size === 0 && juego.jugadores.size === 1) {
+        console.log('Partida finalizada');
+        //juego = null;
+        winner = true;
+    }
+
     if (!juego) return;
     if (!juego.jugadores.get(movimiento.id)) return;
     let estado = juego.movimientoPlayer(movimiento.id, movimiento.x, movimiento.y);
 
     if (estado === 'Eliminado') {
         console.log('El jugador ' + movimiento.id + ' ha sido eliminado');
-
         eliminado = movimiento.id;
     } else if (estado === 'Colision') {
         console.log('El jugador ' + movimiento.id + ' ha colisionado.');
-    } else if (estado === 'Desplazamiento') {
-        // console.log(juego.jugadores.get(movimiento.id));
     }
 
-    let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado, mapa: juego.mapa }), partition: 0 }];
+
+
+
+    //LOS NPCS SE MUEVEN 
+    for (let i = 0; i < juego.npcs.size; i++) {
+        x = getRandomInt(-1, 1);
+        y = getRandomInt(-1, 1);
+
+        let id = Array.from(juego.npcs.keys())[i];
+        //console.log("NPC: " + id + " " + x + " :" + y)
+        let response = juego.movimientoNPC(id, x, y);
+        if (response === 'Eliminado') {
+            console.log('El npc ' + id + ' ha sido eliminado');
+            eliminado = id;
+        } else if (response === 'Colision') {
+            // console.log('El npc ' + id + ' ha colisionado.');
+        }
+    }
+
+
+    let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado, mapa: juego.mapa, winner }), partition: 0 }];
 
     producer.send(payloads, (err, data) => {
         if (err) console.log(err);
     });
+
+
+    //delay(2000);
+    //if (winner || juego.jugadores.size == 0) process.exit();
+
 });
 
 
@@ -634,6 +679,7 @@ consumerMov.on('message', (message) => {
 //    console.log(opcion);
 //    process.exit(0);
 //});
+
 
 io.listen(argumentos.engine.port);
 

@@ -10,6 +10,8 @@ const producer = new kafka.Producer(client);
 function leerID() {
     reader.read("", (id) => {
 
+
+
         let npc = { id: id };
 
         if (npc.id == 'q') process.exit();

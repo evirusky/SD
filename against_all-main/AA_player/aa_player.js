@@ -56,7 +56,7 @@ function capturaTecla(id) {
 
 //MENÚ
 function menu() {
-    console.log(" \nMENÚ PRINCIPAL \n1.Crear perfil. \n2.Editar peril. \n3.Unirse a la partida\nq.Salir ");
+    console.log(" \n\x1b[31mMENÚ PRINCIPAL\x1b[0m \n1.Crear perfil. \n2.Editar peril. \n3.Unirse a la partida\nq.Salir ");
     reader.read(">", (opcion) => {
         switch (opcion) {
             case '1':
@@ -110,8 +110,14 @@ function menu() {
 
                             else {
                                 jugador = JSON.parse(response);
-                                console.log("Jugador " + jugador.alias + " con id " + jugador.id + ". Bienvenido a la partida :)");
+                                console.log(jugador.alias + ": usuario autentificado correctamente");
 
+                                //Espero mensaje de engine para comenzar partida 
+
+
+                                console.log("\x1b[94m Comienza la partida\x1b[0m");
+                                console.log("Jugador " + jugador.alias + " con id " + jugador.id + ". \x1b[96mBienvenido a la partida :)\x1b[0m");
+                                console.log("\x1b[90mPulsa cualquier tecla para moverte (up, down, left, right)\x1b[0m ")
                                 //capturo las teclas 
                                 capturaTecla(jugador.id);
 
@@ -120,10 +126,14 @@ function menu() {
 
                                     let id = JSON.parse(message.value).eliminado;
                                     let mapa = JSON.parse(message.value).mapa;
+                                    let winner = JSON.parse(message.value).winner;
                                     console.table(mapa);
 
                                     if (id) console.log("Jugador " + id + " ha sido eliminado");
-
+                                    if (winner) {
+                                        console.log("\x1b[91mJugador " + jugador.id + " has ganado la partida!! FELICIDADES :D\x1b[0m");
+                                        process.exit();
+                                    }
                                     if (jugador && id == jugador.id) {
                                         console.log("Has sido eliminado");
                                         process.stdin.removeAllListeners('keypress');
@@ -154,5 +164,10 @@ function menu() {
 
 }
 
-console.log("**BIENVENIDO A AGAINST ALL** ")
+engine.on('empiezo', (respuesta) => {
+    console.log(respuesta);
+
+});
+
+console.log("\x1b[93m **BIENVENIDO A AGAINST ALL** \x1b[0m")
 menu();
