@@ -127,11 +127,12 @@ function menu() {
                                     let id = JSON.parse(message.value).eliminado;
                                     let mapa = JSON.parse(message.value).mapa;
                                     let winner = JSON.parse(message.value).winner;
+                                    let id_winner = JSON.parse(message.value).id_winner;
                                     console.table(mapa);
 
                                     if (id) console.log("Jugador " + id + " ha sido eliminado");
                                     if (winner) {
-                                        console.log("\x1b[91mJugador " + jugador.id + " has ganado la partida!! FELICIDADES :D\x1b[0m");
+                                        console.log("\x1b[91mJugador " + id_winner + " ha ganado la partida!! FELICIDADES :D\x1b[0m");
                                         process.exit();
                                     }
                                     if (jugador && id == jugador.id) {

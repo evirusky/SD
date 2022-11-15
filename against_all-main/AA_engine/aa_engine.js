@@ -525,14 +525,17 @@ function nuevaPartida() {
 
     if (!weather.connected) throw 'Error : No se ha podido conectar con el servidor de clima';
 
-    weather.emit('totalClimas', 'Partida empezada', async (response) => {
-        let totalClimas = response.count;
-        indiceCiudades(totalClimas);
-        await nuevoClima(idCiudades[0])
-        await nuevoClima(idCiudades[1])
-        await nuevoClima(idCiudades[2])
-        await nuevoClima(idCiudades[3])
+    return new Promise(function (resolve, reject) {
 
+        weather.emit('totalClimas', 'Partida empezada', async (response) => {
+            let totalClimas = response.count;
+            indiceCiudades(totalClimas);
+            await nuevoClima(idCiudades[0])
+            await nuevoClima(idCiudades[1])
+            await nuevoClima(idCiudades[2])
+            await nuevoClima(idCiudades[3])
+            resolve();
+        });
     });
 }
 
@@ -557,9 +560,7 @@ io.on("connection", playerSocket => {
 
                         if (juego === null) {//Instancia no generada
 
-                            console.log(ciudades);
                             await nuevaPartida();
-                            console.log(ciudades);
                             juego = new Juego(argumentos.engine.max_jugadores, ciudades);
                             console.log(juego.ciudades, juego.max_jugadores);
 
@@ -619,15 +620,13 @@ consumerMov.on('message', (message) => {
     //console.log(message.value);
     let movimiento = JSON.parse(message.value);
     let eliminado;
+    let id_winner;
     //console.log(movimiento);
     //console.log(juego.ciudades);
 
     if (!juego) return;
-    if (juego.npcs.size === 0 && juego.jugadores.size === 1) {
-        console.log('Partida finalizada');
-        //juego = null;
-        winner = true;
-    }
+
+
 
     if (!juego) return;
     if (!juego.jugadores.get(movimiento.id)) return;
@@ -659,8 +658,14 @@ consumerMov.on('message', (message) => {
         }
     }
 
+    if (juego.npcs.size === 0 && juego.jugadores.size === 1) {
+        console.log('Partida finalizada');
+        //juego = null;
+        winner = true;
+        id_winner = Array.from(juego.jugadores.keys())[0];
+    }
 
-    let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado, mapa: juego.mapa, winner }), partition: 0 }];
+    let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado, mapa: juego.mapa, winner, id_winner }), partition: 0 }];
 
     producer.send(payloads, (err, data) => {
         if (err) console.log(err);
@@ -668,7 +673,11 @@ consumerMov.on('message', (message) => {
 
 
     //delay(2000);
-    //if (winner || juego.jugadores.size == 0) process.exit();
+    if (winner || juego.jugadores.size == 0) {
+        delay(2000);
+
+        juego = null;
+    }
 
 });
 

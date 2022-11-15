@@ -9,11 +9,11 @@
     "port": 2443
   },
   "kafka": {
-    "ip": "localhost",
-    "port": 2554
+    "ip": "192.168.247.214",
+    "port": 9092
   },
   "clima": {
-    "ip": "localhost",
+    "ip": "192.168.247.214",
     "port": 2844
   },
   "db": {
