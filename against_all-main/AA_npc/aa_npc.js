@@ -1,7 +1,8 @@
 const kafka = require('kafka-node');
 const reader = require("read-console");
+const argumentos = require("../arguments.json");
 
-const client = new kafka.KafkaClient({ kafkaHost: 'localhost:9092' });
+const client = new kafka.KafkaClient({ kafkaHost: argumentos.kafka.ip + ':' + argumentos.kafka.port });
 const producer = new kafka.Producer(client);
 
 

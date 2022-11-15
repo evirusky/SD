@@ -567,9 +567,20 @@ io.on("connection", playerSocket => {
                             playerSocket.emit('empiezo', '\x1b[93mCreada nueva partida. Esperando jugadores...\x1b[0m ');
 
                             //Espero 5 segudos a que se unan jugadores 
-                            await delay(5000);
-                            juego.empezar(); //cambio estado = 'empezado'
+                            let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado: false, mapa: juego.mapa, winner: false, id_winner: false }), partition: 0 }];
 
+                            producer.send(payloads, (err, data) => {
+                                if (err) console.log(err);
+                            });
+
+                            await delay(10000);
+                            juego.empezar(); //cambio estado = 'empezado'
+                        } else {
+                            let payloads = [{ topic: 'partida', messages: JSON.stringify({ eliminado: false, mapa: juego.mapa, winner: false, id_winner: false }), partition: 0 }];
+
+                            producer.send(payloads, (err, data) => {
+                                if (err) console.log(err);
+                            });
                         }
 
                         if (juego.estado === 'empezado' && juego.lleno()) {//Instancia de juego en marcha o esta llena
@@ -586,6 +597,9 @@ io.on("connection", playerSocket => {
                             console.log(jugador);
                             callback(JSON.stringify(jugador));
                             console.log(arg.alias + ' se ha conectado correctamente con el id ' + res.rows[0].id);
+
+
+
                         }
                     } else callback('Error : Credenciales invalidas ');
                 }
@@ -624,11 +638,11 @@ consumerMov.on('message', (message) => {
     //console.log(movimiento);
     //console.log(juego.ciudades);
 
-    if (!juego) return;
+    if (!juego || juego.estado == 'A la espera') return;
 
 
 
-    if (!juego) return;
+    //if (!juego) return;
     if (!juego.jugadores.get(movimiento.id)) return;
     let estado = juego.movimientoPlayer(movimiento.id, movimiento.x, movimiento.y);
 
@@ -675,7 +689,7 @@ consumerMov.on('message', (message) => {
     //delay(2000);
     if (winner || juego.jugadores.size == 0) {
         delay(2000);
-
+        winner = false;
         juego = null;
     }
 
